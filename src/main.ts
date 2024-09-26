@@ -74,6 +74,9 @@ const dmMachine = setup({
     fhHello: fromPromise<any, null>(async () => {
       return fhSay("Hi");
     }),
+    fhL: fromPromise<any, null>(async () => {
+     return fhListen();
+   }),
   },
 }).createMachine({
   id: "root",
@@ -85,7 +88,7 @@ const dmMachine = setup({
         src: "fhHello",
         input: null,
         onDone: {
-          target: "Fetch",
+          target: "Recognised",
           actions: ({ event }) => console.log(event.output),
         },
         onError: {
