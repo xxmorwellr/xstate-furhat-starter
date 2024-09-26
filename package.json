@@ -2,7 +2,8 @@
   "name": "xstate-backend",
   "packageManager": "yarn@3.6.3",
   "dependencies": {
-    "xstate": "beta"
+    "@types/node": "^22.7.2",
+    "xstate": "^5.18.2"
   },
   "devDependencies": {
     "ts-node": "^10.9.1",
