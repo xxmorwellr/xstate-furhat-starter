@@ -1,7 +1,14 @@
 import { setup, createActor, fromPromise, assign } from "xstate";
 
+// list my Settings
+// Mask: adult
+// Character: Jane
+// Voice: EmmaNeural (en-US) - Microsoft Azure
+// *sound effect from Pixabay
+
 const FURHATURI = "127.0.0.1:54321";
 
+// Get Users and keep tracking
 async function fhGetUser() {
   const myHeaders = new Headers();
   myHeaders.append("accept", "application/json");
@@ -33,6 +40,38 @@ async function fhSay(text: string) {
   });
 }
 
+// Custom Gestures
+async function smileGesture() { // example from help doc
+  const myHeaders = new Headers();
+  myHeaders.append("accept", "application/json");
+  return fetch(`http://${FURHATURI}/furhat/gesture?blocking=false`, {
+    method: "POST",
+    headers: myHeaders,
+    body: JSON.stringify({
+        name:"BigSmile",
+        frames:[
+         {
+            "time":[0.32,0.64],
+            "persist":false, 
+            "params":{
+              "BROW_UP_LEFT":1,
+              "BROW_UP_RIGHT":1,
+              "SMILE_OPEN":0.4,
+              "SMILE_CLOSED":0.7
+              }
+          },
+          {
+            "time":[0.96],
+            "persist":false,
+            "params":{
+              "reset":true
+              }
+          }],
+        class:"furhatos.gestures.Gesture"
+        })
+    });
+}
+
 async function greetingGesture() {
   const myHeaders = new Headers();
   myHeaders.append("accept", "application/json");
@@ -44,13 +83,11 @@ async function greetingGesture() {
       frames: [
         {
           time: [0, 0.4], //ADD THE TIME FRAME OF YOUR LIKING
-          persist: true,
+          persist: false,
           params: {
             //ADD PARAMETERS HERE IN ORDER TO CREATE A GESTURE
             "SURPRISE":1,
-            "NECK_ROLL":0.7,
-            "SMILE_OPEN":0.4,
-            "SMILE_CLOSED":0.7
+            "NECK_ROLL":7,
           },
         },
         {
@@ -67,26 +104,25 @@ async function greetingGesture() {
   });
 }
 
-async function nodGesture() {
+async function refusedGesture() {
   const myHeaders = new Headers();
   myHeaders.append("accept", "application/json");
   return fetch(`http://${FURHATURI}/furhat/gesture?blocking=false`, {
     method: "POST",
     headers: myHeaders,
     body: JSON.stringify({
-      name: "Nod",
+      name: "refused",
       frames: [
         {
-          time: [0.17, 1.0, 6.0], // time range
-          persist: true,
+          time: [0.8], // time range
+          persist: false,
           params: {
-            "LOOK_DOWN": 0.7,
-            "NECK_PAN": -12.0,
-            "NECK_TILT": -25.0
+            "BROW_UP_LEFT": 0.4,
+            "NECK_PAN": 7 // -50-50
           }
         },
         {
-          time: [0.7], //ADD TIME FRAME IN WHICH YOUR GESTURE RESETS
+          time: [1.2], //ADD TIME FRAME IN WHICH YOUR GESTURE RESETS
           persist: false, //optional
           params: {
               reset: true,
@@ -99,18 +135,32 @@ async function nodGesture() {
   });
 }
 
-async function fhGesture(text: string) {
+// Custom audio
+async function fhAudioSound(url: string) {
   const myHeaders = new Headers();
   myHeaders.append("accept", "application/json");
-  return fetch(
-    `http://${FURHATURI}/furhat/gesture?name=${text}&blocking=true`,
-    {
-      method: "POST",
-      headers: myHeaders,
-      body: "",
-    },
-  );
+  const encURL = encodeURIComponent(url);
+  
+  return fetch(`http://${FURHATURI}/furhat/say?url=${encURL}`, {
+    method: "POST",
+    headers: myHeaders,
+    body: "",
+  });
 }
+
+// Call built-in params
+// async function fhGesture(text: string) {
+//   const myHeaders = new Headers();
+//   myHeaders.append("accept", "application/json");
+//   return fetch(
+//     `http://${FURHATURI}/furhat/gesture?name=${text}&blocking=true`,
+//     {
+//       method: "POST",
+//       headers: myHeaders,
+//       body: "",
+//     },
+//   );
+// }
 
 async function fhListen() {
   const myHeaders = new Headers();
@@ -129,7 +179,7 @@ const dmMachine = setup({
   actors: {
     fhHello: fromPromise<any, null>(async () => {
       return Promise.all([
-        fhSay("Hi"), 
+        fhSay("Hi, what can I do for you?"), 
         greetingGesture()
       ])
     }),
@@ -142,9 +192,17 @@ const dmMachine = setup({
     fhUserTracker: fromPromise<any, null>(async () => {
       return fhUserTracking();
     }),
-    fhSpeak: fromPromise<any, {message: string}>(async ({input}) => {
+    fhRefuse: fromPromise<any, null>(async () => {
       return Promise.all([
-        fhSay(input.message),
+        fhAudioSound("https://raw.githubusercontent.com/xxmorwellr/xstate-furhat-starter/master/thinking-sound-effect.wav"),
+        fhSay("...emm, I think I couldn't"), 
+        refusedGesture()
+      ])
+    }),
+    fhSmile: fromPromise<any, null>(async () => {
+      return Promise.all([
+        fhSay("but I can chit-chat with you"), 
+        smileGesture()
       ])
     }),
   },
@@ -181,12 +239,12 @@ const dmMachine = setup({
         },
       },
     },
-   Greeting: {
+    Greeting: {
       invoke: {
         src: "fhHello",
         input: null,
         onDone: {
-          target: "Listen1",
+          target: "Listen",
           actions: ({ event }) => console.log(event.output),
         },
         onError: {
@@ -195,14 +253,14 @@ const dmMachine = setup({
         },
       },
     },
-    Listen1: {
+    Listen: {
       invoke: {
         src: "fhL",
         input: null,
         onDone: {
-          target: "Confused",
+          target: "Refuse",
           actions: [
-            ({ event }) => console.log(event.output), 
+            ({ event }) => console.log(event.output), // e.g., "Can you imitate bird-singing?"
             assign({ lastResult: ({ event }) => event.output,}),
         ]},
         onError: {
@@ -211,21 +269,36 @@ const dmMachine = setup({
         },
       },
     },
-    Confused: {
+    Refuse: {
       invoke: {
-        src : "fhSpeak",
-        input: { message: "Ok! I would try" },
+        src : "fhRefuse",
+        input: null,
         onDone: {
-          target:"Speak",
+          target:"Smile",
           actions: ({ event }) => console.log(event.output)
         },
         onError: {
           target: "Fail",
           actions: ({ event }) => console.error(event)
-      }
+        }
+      },
     },
-  },
-  Fail: {},
+    Smile: {
+      invoke: {
+        src : "fhSmile",
+        input: null,
+        onDone: {
+          target:"Recognised",
+          actions: ({ event }) => console.log(event.output)
+        },
+        onError: {
+          target: "Fail",
+          actions: ({ event }) => console.error(event)
+        }
+      },
+    },
+    Recognised: {},
+    Fail: {},
   },
 });
 
