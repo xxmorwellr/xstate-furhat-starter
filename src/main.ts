@@ -141,7 +141,7 @@ async function fhAudioSound(url: string) {
   myHeaders.append("accept", "application/json");
   const encURL = encodeURIComponent(url);
   
-  return fetch(`http://${FURHATURI}/furhat/say?url=${encURL}`, {
+  return fetch(`http://${FURHATURI}/furhat/say?url=${encURL}&blocking=true`, {
     method: "POST",
     headers: myHeaders,
     body: "",
@@ -194,8 +194,8 @@ const dmMachine = setup({
     }),
     fhRefuse: fromPromise<any, null>(async () => {
       return Promise.all([
-        fhAudioSound("https://raw.githubusercontent.com/xxmorwellr/xstate-furhat-starter/master/thinking-sound-effect.wav"),
-        fhSay("...emm, I think I couldn't"), 
+        fhAudioSound("https://furhat-audio.s3.eu-north-1.amazonaws.com/thinkingHm.wav"),
+        fhSay("...I think I couldn't"), 
         refusedGesture()
       ])
     }),
